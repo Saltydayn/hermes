@@ -1,0 +1,10 @@
+# BUILD-TIME ONLY: packaging dependencies for the HERMES distribution (roadmap 7.2).
+# NOT runtime: app code never imports these; NEVER merge them into requirements.txt.
+# Install with:  pip install -r requirements-build.txt
+#
+# pyinstaller pulls pyinstaller-hooks-contrib (the stock cv2/numpy/PIL/sounddevice hooks).
+pyinstaller>=6.3
+
+# Also required, but NOT pip-installable:
+#   - ffmpeg.exe placed at assets/ffmpeg.exe   (bundled into the app, see build/README.md)
+#   - Inno Setup 6 (ISCC.exe)                  (only for --installer; see SPEC_dist.3)

@@ -1,0 +1,12 @@
+# Streamer Companion, core dependencies.
+# Module-specific deps (yt-dlp, faster-whisper, google-api-python-client, rembg, ...)
+# are added here as each module that needs them is built. See claude-guidance/4_ROADMAP.md.
+#
+# Not a pip package: ffmpeg (binary). Must be on PATH or placed at assets/ffmpeg.exe.
+
+opencv-python>=4.8     # core video/image (cv2)
+numpy>=1.24            # array math for frames
+Pillow>=10.0           # image loading / Tk image bridge
+yt-dlp                 # URL import (importer); ~3MB pure-python. Needs ffmpeg for muxing (already required).
+tkinterdnd2            # drag-and-drop file import (importer); ~0.5MB, bundles the tkdnd Tcl lib. Optional, file import degrades gracefully if absent.
+sounddevice            # audible playback (editor); PortAudio bundled, ~2MB (+cffi), numpy-native callback streaming. Optional, playback degrades to silent if absent.

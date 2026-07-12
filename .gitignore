@@ -1,0 +1,36 @@
+# Runtime user data (never committed)
+config.json
+token.json
+client_secrets.json
+supporters_cache.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Downloaded ML models (large, fetched on demand)
+models/
+
+# Bundled ffmpeg fallback + any other stray executables/installers in assets
+assets/*.exe
+
+# Generated media: keep the data/ subdirs, ignore their contents
+data/Downloads/*
+data/Shorts/*
+data/Thumbnails/*
+data/Subtitles/*
+data/Emotes/*
+!data/**/.gitkeep
+
+# Default export/import folders created at the app root at runtime
+shorts_export/
+shorts_import/
+
+# Build artifacts (roadmap 7.2 / dist.2-3): keep build/*.py, build/*.spec, build/*.iss, build/README.md
+build/dist/
+build/work/
+build/version_info.txt
+build/Output/
+*.zip
+HERMES-*-setup.exe
