@@ -8,9 +8,9 @@ version resource needs ints); release-stage labeling goes in VERSION_SUFFIX."""
 APP_NAME  = "HERMES"                         # internal / installer filename / exe ProductName
 DISPLAY_NAME = "H.E.R.M.E.S."                 # user-facing dotted brand (NAMING.md)
 EXPANSION = "Highlight Editor & Rapid Media Export Suite"
-VERSION   = "0.9.3"          # pre-launch RC; 1.0.0 ships at launch
-VERSION_SUFFIX = "BETA"      # release-stage label shown after the version; "" for stable
-NAME_TAG  = "(STC - Subject to Change)"   # shown next to the brand while the name is not final; "" to drop
+VERSION   = "1.0.0"          # first stable release
+VERSION_SUFFIX = ""          # release-stage label shown after the version; "" for stable
+NAME_TAG  = ""                # shown next to the brand while the name is not final; "" to drop
 PUBLISHER = "Saltydayn"      # used in exe metadata + installer
 
 

@@ -1,0 +1,60 @@
+{
+  "updated": "2026-06-27",
+  "source": "kofi",
+  "_note": "Large fixture: busy tiers to force per-tier auto-scroll. oidasama pinned in thanks. mega/giga immortal.",
+  "tier_order": ["terabyte", "gigabyte", "megabyte", "kilobyte", "byte"],
+  "tiers": {
+    "terabyte": [],
+    "gigabyte": [
+      { "name": "sample_giga_1", "immortal": true, "url": "" }
+    ],
+    "megabyte": [
+      { "name": "mega_keep", "immortal": true, "url": "" },
+      { "name": "mega_two", "immortal": true, "url": "" }
+    ],
+    "kilobyte": [
+      { "name": "kilo_aria" },
+      { "name": "kilo_bex" },
+      { "name": "kilo_cyn" },
+      { "name": "kilo_dot" },
+      { "name": "kilo_evo" }
+    ],
+    "byte": [
+      { "name": "dayn_fan" },
+      { "name": "clipper" },
+      { "name": "vodgoblin" },
+      { "name": "qwerty" },
+      { "name": "mossy" },
+      { "name": "rin" },
+      { "name": "sprout" },
+      { "name": "echo_v" },
+      { "name": "bitflip" },
+      { "name": "lurk99" },
+      { "name": "gg_no_re" },
+      { "name": "pogchampion" },
+      { "name": "frame_perfect" },
+      { "name": "low_ping" },
+      { "name": "no_scope" },
+      { "name": "kappa_kid" },
+      { "name": "vibe_check" },
+      { "name": "afk_andy" },
+      { "name": "buffer_bob" },
+      { "name": "render_rita" },
+      { "name": "subtle_sam" },
+      { "name": "loop_lia" }
+    ]
+  },
+  "anonymous": { "terabyte": 0, "gigabyte": 0, "megabyte": 1, "kilobyte": 2, "byte": 9 },
+  "thanks": [
+    { "name": "oidasama", "pinned": true, "role": "friend", "url": "" },
+    { "name": "co_founder_cam", "pinned": true, "role": "friend", "url": "" },
+    { "name": "stream_pal_1", "role": "streamer", "url": "" },
+    { "name": "stream_pal_2", "role": "streamer", "url": "" },
+    { "name": "stream_pal_3", "role": "streamer", "url": "" },
+    { "name": "old_friend_a", "role": "friend", "url": "" },
+    { "name": "old_friend_b", "role": "friend", "url": "" },
+    { "name": "tester_quill", "role": "tester", "url": "" },
+    { "name": "tester_rook", "role": "tester", "url": "" },
+    { "name": "tester_sage", "role": "tester", "url": "" }
+  ]
+}

@@ -21,7 +21,7 @@ from shared import version
 
 # The built-in update source. Set before release (see for-you/DISTRIBUTION.md);
 # "" means checking is unconfigured. Overridable via the "update_url" config key.
-DEFAULT_UPDATE_URL = ""
+DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/Saltydayn/hermes/main/version.json"
 
 _NOTES_MAX = 200
 

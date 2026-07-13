@@ -34,3 +34,6 @@ build/version_info.txt
 build/Output/
 *.zip
 HERMES-*-setup.exe
+
+# Local screenshot captures (dev/screenshots/, never shipped, never public)
+dev/screenshots/output/
