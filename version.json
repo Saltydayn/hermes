@@ -1,5 +1,5 @@
 {
-  "latest": "1.0.1",
+  "latest": "1.0.0",
   "download_url": "https://github.com/Saltydayn/hermes/releases/latest",
-  "notes": "Test entry - ignore. Confirming the update banner fires correctly."
+  "notes": "First stable release."
 }
