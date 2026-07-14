@@ -2,7 +2,7 @@
 
 **Highlight Editor & Rapid Media Export Suite**
 
-A free Windows desktop app for turning raw stream clips into finished 9:19 vertical videos ready for YouTube Shorts, Instagram Reels, Tiktok, you name it. Load a
+A free Windows desktop app for turning raw stream clips into finished vertical 9:16 videos ready for YouTube Shorts, Instagram Reels, Tiktok, you name it. Load a
 clip, crop and split it into a 9:16 layout, add highlight boxes and a watermark, cut out the
 boring parts, adjust the audio, render, and export. Built by a streamer, for streamers - the
 whole point is making that after-stream editing loop fast instead of painful.
