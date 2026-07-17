@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.2
+
+Small fix release. A few app icons (Discord, Ko-fi, X, and the window's own icon)
+and the About tab's supporter data weren't actually making it into the installer -
+they're bundled correctly now.
+
 ## v1.0.1
 
 A smaller release focused on Home and distribution, plus the update mechanism itself
