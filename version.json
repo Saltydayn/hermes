@@ -1,7 +1,7 @@
 {
-  "latest": "1.0.2",
+  "latest": "1.0.1",
   "download_url": "https://github.com/Saltydayn/hermes/releases/latest",
-  "notes": "Test build for the update mechanism.",
+  "notes": "Bigger default window, a real settings panel on Home, ffmpeg removal, installer-only distribution, and in-app auto-update.",
   "title": "",
-  "manifest_url": "https://raw.githubusercontent.com/Saltydayn/hermes/release-blobs/blobs/manifest-1.0.2.json"
+  "manifest_url": "https://raw.githubusercontent.com/Saltydayn/hermes/release-blobs/blobs/manifest-1.0.1.json"
 }
