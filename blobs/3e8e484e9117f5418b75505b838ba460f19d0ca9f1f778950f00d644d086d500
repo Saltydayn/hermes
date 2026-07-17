@@ -1,0 +1,28 @@
+{
+  "updated": "2026-06-28",
+  "source": "kofi",
+  "tier_order": ["terabyte", "gigabyte", "megabyte", "kilobyte", "byte"],
+  "tiers": {
+    "terabyte": [],
+    "gigabyte": [
+      { "name": "sample_giga_1", "immortal": true, "url": "" }
+    ],
+    "megabyte": [
+      { "name": "mega_keep", "immortal": true, "url": "" }
+    ],
+    "kilobyte": [
+      { "name": "kilo_aria" },
+      { "name": "kilo_bex" }
+    ],
+    "byte": [
+      { "name": "dayn_fan" },
+      { "name": "clipper" }
+    ]
+  },
+  "anonymous": { "terabyte": 0, "gigabyte": 0, "megabyte": 0, "kilobyte": 0, "byte": 1 },
+  "thanks": [
+    { "name": "oidasama", "pinned": true, "role": "friend", "url": "" },
+    { "name": "stream_pal_1", "role": "streamer", "url": "" },
+    { "name": "tester_quill", "role": "tester", "url": "" }
+  ]
+}

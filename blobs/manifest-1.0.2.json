@@ -1,7 +1,7 @@
 {
   "files": {
     "HERMES.exe": {
-      "sha256": "a2d458a0d1c9d9a9275a4cca215bdd81076d143a7fa6e9ca1c5f0a19f7026120",
+      "sha256": "3d762cd36394bd5c9c565ff613a1679a578f2cedaea9d18e5ca033cceb1542a6",
       "size": 14501021
     },
     "_internal/81d243bd2c585b0f4821__mypyc.cp314-win_amd64.pyd": {
@@ -124,16 +124,40 @@
       "sha256": "e5924e2985186797668dd3b2e1efeb9313459258a4564dbf5499935c7ebd44e7",
       "size": 503128
     },
+    "_internal/assets/discord.png": {
+      "sha256": "a73e3a8d7750291bd87bcdfb672510b70c5123b52551d5b1895e74c96e950b49",
+      "size": 16926
+    },
+    "_internal/assets/hermes.ico": {
+      "sha256": "c7860b0946b277e69baee33857b351c1765e6a6c939d6d6455d8c6615dc10970",
+      "size": 32812
+    },
+    "_internal/assets/hermes.png": {
+      "sha256": "3a96f36ac32d2c1d85f2eed432d4a6ea005cab0e3348ff7f74a5287e38779716",
+      "size": 15648
+    },
+    "_internal/assets/kofi.png": {
+      "sha256": "c588ecf4584d7052b8a4ee39ecf0ac685f38378bd73ebf49c1d657b415ed7a5c",
+      "size": 4498
+    },
+    "_internal/assets/supporters.seed.json": {
+      "sha256": "3e8e484e9117f5418b75505b838ba460f19d0ca9f1f778950f00d644d086d500",
+      "size": 830
+    },
     "_internal/assets/twitch.png": {
       "sha256": "010ba778854134d1001a2945b0b62224e66a7f7ca68aef46ac56fbb841dd85c9",
       "size": 4015
+    },
+    "_internal/assets/x.png": {
+      "sha256": "61b460120b1c0261df1f3e2e1e3f23412b2c5bb0e882d4fb4ec204f959e62d8b",
+      "size": 45691
     },
     "_internal/assets/youtube.png": {
       "sha256": "448824420bfef553cc6f4986002307bbb08369e952e2cf5bb40ba4fdba0ab243",
       "size": 22964
     },
     "_internal/base_library.zip": {
-      "sha256": "e99cf85142b7741fb89d9f623a9e39fef08cd7ab0ba6575692feaeb60743129d",
+      "sha256": "076118b6b91d0f93bdc08b61c580ba6ea3e1501a76cbcbaf4f348e66687559eb",
       "size": 1388172
     },
     "_internal/certifi/cacert.pem": {
