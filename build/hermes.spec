@@ -18,10 +18,16 @@ REPO = os.path.dirname(SPECPATH)          # build/ -> repo root
 ASSETS = os.path.join(REPO, "assets")
 
 # Bundled data -> _internal/assets/. Icons only - ffmpeg.exe is on-demand (9.3b), never
-# shipped in the build.
+# shipped in the build. hermes.ico/hermes.png are read as DATA FILES at runtime by
+# main.py's _set_window_icon() and shared/ui_helpers.load_brand_icon() - separate from
+# icon_arg below, which only embeds hermes.ico into the EXE's own Win32 resource
+# (taskbar/Explorer/shortcuts). Without these two here, the window's own title-bar
+# icon silently fell back to Tk's generic default (found 2026-07-17, live v1.0.1).
 datas = [
     (os.path.join(ASSETS, "twitch.png"), "assets"),
     (os.path.join(ASSETS, "youtube.png"), "assets"),
+    (os.path.join(ASSETS, "hermes.ico"), "assets"),
+    (os.path.join(ASSETS, "hermes.png"), "assets"),
 ]
 # tkinterdnd2 ships the tkdnd Tcl library as data files; without them drag-and-drop import
 # silently dies in the frozen app (it degrades gracefully, but we want it working).
