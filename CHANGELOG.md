@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.0.1
+
+A smaller release focused on Home and distribution, plus the update mechanism itself
+going live for the first time.
+
+**Home**
+- The app opens at a bigger default size now, so the settings below the module cards
+  aren't hiding below the fold on a smaller window.
+- Settings moved into their own collapsible panel that stays put no matter how the
+  window is resized, instead of getting squeezed off screen.
+- You can now remove HERMES's own downloaded ffmpeg copy from Home, not just download it.
+
+**Distribution**
+- Installer only from here on. No more portable zip, one clean download link.
+- HERMES can now check for updates and apply them itself in the background, without
+  needing to run the installer again by hand.
+
 ## v1.0.0
 
 The first real release. Since the last beta round, here's what changed:

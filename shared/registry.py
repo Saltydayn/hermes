@@ -25,6 +25,7 @@ MODULE_REGISTRY = {
         "always_on": False,
         "produces": ["raw_clip"],
         "consumes": [],
+        "needs_ffmpeg": True,
     },
     "editor": {
         "label": "Clip Editor",
@@ -32,6 +33,7 @@ MODULE_REGISTRY = {
         "always_on": False,
         "produces": ["edited_clip"],
         "consumes": ["raw_clip"],
+        "needs_ffmpeg": True,
     },
     "exporter": {
         "label": "Export",
@@ -39,6 +41,7 @@ MODULE_REGISTRY = {
         "always_on": False,
         "produces": ["final_file"],
         "consumes": ["edited_clip", "subtitled_clip"],
+        "needs_ffmpeg": True,
     },
     "about": {
         "label": "About",
@@ -79,3 +82,9 @@ def who_produces(data_type):
 def who_consumes(data_type):
     """Module keys that consume the given data type."""
     return [k for k, m in MODULE_REGISTRY.items() if data_type in m.get("consumes", [])]
+
+
+def needs_ffmpeg(key):
+    """True if the module declares needs_ffmpeg in MODULE_REGISTRY."""
+    meta = MODULE_REGISTRY.get(key)
+    return bool(meta and meta.get("needs_ffmpeg"))

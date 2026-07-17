@@ -9,11 +9,14 @@ PyInstaller can't cross-build a Windows exe, so **build on Windows**.
 
 1. **Python 3.x** with the app's runtime deps installed (`pip install -r requirements.txt`).
 2. **Build deps:** `pip install -r requirements-build.txt` (PyInstaller).
-3. **ffmpeg:** place a Windows `ffmpeg.exe` at **`assets/ffmpeg.exe`**. The build bundles it;
-   it refuses to build without it. (Get one from https://www.gyan.dev/ffmpeg/builds/, the
-   "essentials" build is smaller; any full static `ffmpeg.exe` works.)
-4. *(optional)* `assets/hermes.ico` for the exe icon; the build tolerates its absence (warns
+3. *(optional)* `assets/hermes.ico` for the exe icon; the build tolerates its absence (warns
    and ships without an icon).
+
+ffmpeg is NOT a build prerequisite (roadmap 9.3b): it is never bundled into the build. The
+app downloads its own copy on demand at runtime, the first time a module that needs it is
+enabled. `assets/ffmpeg.exe` is an optional dev/run-from-source fallback only -
+`find_ffmpeg()` (`shared/video_utils.py`) checks PATH first, then the runtime download
+target, then `assets/ffmpeg.exe` last - the build succeeds either way.
 
 ## Build the app (onedir)
 
@@ -22,7 +25,8 @@ python build/build.py
 ```
 
 Output: **`build/dist/HERMES/HERMES.exe`** plus **`build/dist/HERMES/_internal/`** (the
-PyInstaller onedir tree; `assets/` icons and bundled ffmpeg land in `_internal/assets/`).
+PyInstaller onedir tree; `assets/` icons land in `_internal/assets/` - ffmpeg is never
+bundled, see above).
 
 ### First-boot debugging
 
@@ -35,17 +39,6 @@ python build/build.py --console
 
 Run that `HERMES.exe` from a terminal to see stdout/stderr, fix the issue, then rebuild
 without `--console` for the release.
-
-## Build the portable zip
-
-```
-python build/build.py --portable
-```
-
-This builds the onedir tree, then assembles **`build/HERMES-<VERSION>-portable.zip`** whose
-root is the `HERMES/` folder **with a `portable.txt` marker beside `HERMES.exe`**. That marker
-flips the app into portable mode: it keeps `config.json` + `data/` **beside the exe** instead
-of in `%LOCALAPPDATA%\HERMES`. Unzip anywhere and run, zero install.
 
 ## Build the installer
 
@@ -72,10 +65,9 @@ This builds a fresh onedir bundle first, then compiles `build/hermes.iss` into
 **Fixed AppId GUID:** `{0141F00E-DB9E-4583-9850-D92A866524FC}`. Never change it; it is the
 installer's upgrade/uninstall identity, and changing it would orphan installed copies.
 
-### Build both in one shot
+### Build shortcut
 
-`build/build_release.bat` runs `python build/build.py --portable --installer`, producing the
-portable zip and the installer together.
+`build/build_release.bat` runs `python build/build.py --installer`.
 
 ### Uninstall behavior
 
@@ -105,5 +97,4 @@ future step (out of scope for v1).
 | `build/dist/HERMES/` | the onedir app tree (exe + `_internal/`) |
 | `build/work/` | PyInstaller scratch (workpath) |
 | `build/version_info.txt` | generated exe version resource |
-| `build/HERMES-<VERSION>-portable.zip` | portable build |
 | `build/Output/HERMES-<VERSION>-setup.exe` | installer (`--installer`) |

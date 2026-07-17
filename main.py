@@ -10,13 +10,14 @@ Run: python main.py
 
 import importlib
 import os
+import shutil
 import subprocess
 import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
 from shared import config as config_mod
-from shared import paths, registry, version
+from shared import paths, registry, relaunch, version
 from shared.bus import MessageBus
 from shared.ui_helpers import apply_dark_theme, make_kofi_button
 
@@ -51,6 +52,8 @@ class StreamerCompanion:
         self.app = AppContext(root)
         self.app.bus.set_handoff_handler(self._handle_handoff)
         self.app.restart = self._restart   # Home's Restart button calls this
+        self.app.apply_update = self._apply_update   # Home's self-update flow (9.3c)
+        self._cleanup_stale_update_staging()
 
         # Restore the user's last window size + position (else a sane default). Set before
         # the window is mapped so it opens in place - incl. after a Restart, not top-left.
@@ -58,7 +61,7 @@ class StreamerCompanion:
         # the zoomed size, and restoring THAT as a normal window loses the real size.
         saved_win = self.app.config.get("window") or {}
         saved_geo = saved_win.get("geometry")
-        self._last_normal_geo = saved_geo or "900x600"
+        self._last_normal_geo = saved_geo or "1600x900"
         self.root.geometry(self._last_normal_geo)
         if saved_win.get("zoomed"):
             self.root.state("zoomed")
@@ -238,6 +241,43 @@ class StreamerCompanion:
             print(f"[hub] restart failed to spawn a new process: {ex}")
             return
         self.root.destroy()
+
+    def _apply_update(self, staged_dir, remove_file):
+        """Quit and hand off to a generated batch script that swaps a downloaded,
+        verified update into place and relaunches HERMES (9.3c). Installed on
+        AppContext next to restart so Home can call it once a self-update has
+        finished downloading."""
+        if not self._confirm_close():   # same in-flight-render guard as close/restart
+            return
+        self._cleanup()
+        ok, error = relaunch.write_and_spawn(
+            staged_dir=staged_dir, install_dir=paths.install_dir(),
+            exe_path=sys.executable, remove_file=remove_file,
+            staging_root=paths.update_staging_dir(create=False))
+        if not ok:
+            print(f"[hub] update apply failed to start: {error}")
+            messagebox.showerror("Update failed",
+                                 f"Could not start the update process: {error}")
+            return
+        self.root.destroy()
+
+    def _cleanup_stale_update_staging(self):
+        """Startup safety net (9.3c): remove any leftover update-staging folder from
+        a batch whose own cleanup step failed to run, and surface a one-time notice
+        if that batch left a "did not complete" marker (shared/relaunch.py)."""
+        staging = paths.update_staging_dir(create=False)
+        if os.path.isdir(staging):
+            shutil.rmtree(staging, ignore_errors=True)
+        marker = relaunch.marker_path(staging)
+        if os.path.exists(marker):
+            try:
+                os.remove(marker)
+            except OSError as ex:
+                print(f"[hub] could not remove the update marker: {ex}")
+            self.root.after(1500, lambda: messagebox.showwarning(
+                "Update did not complete",
+                "The last update did not finish applying, so HERMES kept running "
+                "on the previous version. Try Check now again from Home."))
 
 
 def main():

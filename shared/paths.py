@@ -64,6 +64,7 @@ MODELS_DIR = os.path.join(USER_DATA_DIR, "models")
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")           # assets stay in the read-only bundle
 EXPORT_DIR = os.path.join(USER_DATA_DIR, "shorts_export")
 IMPORT_DIR = os.path.join(USER_DATA_DIR, "shorts_import")
+BIN_DIR = os.path.join(USER_DATA_DIR, "bin")            # on-demand downloads (e.g. ffmpeg.exe)
 
 # Standard data subdirectories (created on demand).
 DATA_SUBDIRS = ("Downloads", "Shorts", "Thumbnails", "Subtitles", "Emotes")
@@ -77,11 +78,12 @@ _SPECIAL = {
     "models": MODELS_DIR,
     "export": EXPORT_DIR,
     "import": IMPORT_DIR,
+    "bin": BIN_DIR,
 }
 
 # Specials we ensure exist on request. "base"/"assets" are read-only bundle dirs - never
 # auto-created (assets ships with the app; base must already exist).
-_AUTO_CREATE = ("data", "models", "userdata", "export", "import")
+_AUTO_CREATE = ("data", "models", "userdata", "export", "import", "bin")
 
 
 def get_path(name, create=True):
@@ -107,6 +109,26 @@ def get_path(name, create=True):
     # Match a standard data subdir case-insensitively, else treat as a custom subdir.
     match = next((d for d in DATA_SUBDIRS if d.lower() == lower), key)
     path = os.path.join(DATA_DIR, match)
+    if create:
+        os.makedirs(path, exist_ok=True)
+    return path
+
+
+def install_dir():
+    """The on-disk folder holding the exe + _internal - what the self-updater
+    (9.3c) patches. Frozen -> _exe_dir(); run-from-source -> BASE_DIR (dev has no
+    shipped manifest.json, so the updater treats itself as unavailable there)."""
+    if getattr(sys, "frozen", False):
+        return _exe_dir()
+    return BASE_DIR
+
+
+def update_staging_dir(create=True):
+    """USER_DATA_DIR/_update - the writable scratch area for a pending self-update
+    (9.3c). Kept separate from install_dir so a half-finished download never
+    pollutes the live tree. create=False lets a caller check for a leftover dir
+    without recreating it."""
+    path = os.path.join(USER_DATA_DIR, "_update")
     if create:
         os.makedirs(path, exist_ok=True)
     return path

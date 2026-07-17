@@ -9,13 +9,16 @@ Visuals are all drawn with Canvas vector primitives (no image files / no extra d
 stay lightweight. Imports ONLY from shared/ and stdlib (modules never import each other).
 """
 
+import json
 import math
+import os
 import queue
+import shutil
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from shared import autostart, registry, update_check, version
+from shared import autostart, downloader, registry, update_check, version, video_utils
 from shared.ui_helpers import (
     PALETTE, HelpDialog, ScrollableFrame, TutorialIntro, TutorialReplayButton,
     TutorialWalkthrough, display_font, draw_lamp, load_brand_icon, make_link_bar,
@@ -125,6 +128,74 @@ def workflow_gaps(config):
     return gaps
 
 
+class _DownloadProgressModal(tk.Toplevel):
+    """Blocking (grab_set) progress modal for a background download - shared by the
+    one-time ffmpeg fetch (9.3b) and the self-update download (9.3c). No title-bar
+    close - Cancel is the only way out, so a worker thread never gets orphaned
+    mid-download."""
+
+    def __init__(self, parent, title, heading):
+        super().__init__(parent)
+        self.title(title)
+        self.configure(bg=PALETTE["bg"])
+        self.resizable(False, False)
+        self.transient(parent)
+        self.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        wrap = tk.Frame(self, bg=PALETTE["bg"])
+        wrap.pack(fill="both", expand=True, padx=18, pady=16)
+        tk.Label(wrap, text=heading, bg=PALETTE["bg"],
+                 fg=PALETTE["text"], font=display_font(13)).pack(anchor="w")
+        self.status = tk.Label(wrap, text="Starting...", bg=PALETTE["bg"],
+                               fg=PALETTE["text_dim"], font=ui_font(9))
+        self.status.pack(anchor="w", pady=(8, 6))
+        self.bar = ttk.Progressbar(wrap, orient="horizontal", mode="indeterminate",
+                                   length=320, maximum=100)
+        self.bar.pack(fill="x")
+        self.bar.start(12)
+        self._pulsing = True
+        self.cancel_btn = themed_button(wrap, "Cancel", None, kind="danger")
+        self.cancel_btn.pack(anchor="e", pady=(14, 0))
+
+        self.update_idletasks()
+        try:
+            px, py = parent.winfo_rootx(), parent.winfo_rooty()
+            pw, ph = parent.winfo_width(), parent.winfo_height()
+            w, h = self.winfo_width(), self.winfo_height()
+            self.geometry(f"+{px + (pw - w) // 2}+{py + (ph - h) // 2}")
+        except tk.TclError:
+            pass
+        self.grab_set()
+
+    def set_progress(self, pct, detail=""):
+        """pct is 0..100, or None for an unknown-total pulse. detail overrides the
+        default percent label (e.g. a "x / y MB" readout for the self-updater)."""
+        if pct is None:
+            if not self._pulsing:
+                self.bar.configure(mode="indeterminate")
+                self.bar.start(12)
+                self._pulsing = True
+            self.status.configure(text=detail or "Downloading...")
+            return
+        if self._pulsing:
+            self.bar.stop()
+            self.bar.configure(mode="determinate")
+            self._pulsing = False
+        self.bar.configure(value=pct)
+        self.status.configure(text=detail or f"{pct:.0f}%")
+
+    def close(self):
+        try:
+            self.bar.stop()
+        except tk.TclError:
+            pass
+        try:
+            self.grab_release()
+        except tk.TclError:
+            pass
+        self.destroy()
+
+
 class ModuleCard:
     """One module rendered as a clickable card on its own small Canvas."""
 
@@ -200,6 +271,61 @@ class ModuleCard:
         c.create_text(72, 76, text=status, anchor="w", fill=scolor, font=ui_font(8))
 
         draw_lamp(c, CARD_W - 24, CARD_H / 2, on)
+
+
+class _SettingsDrawer(tk.Frame):
+    """Collapsible settings panel, place()-pinned to the bottom-left corner of its
+    parent (mirrors TutorialReplayButton's bottom-right pin in shared/ui_helpers.py).
+    A place()-pinned widget is positioned relative to its parent's own bounds, never
+    the pack cavity, so it can never be squeezed off-screen by the module-card grid
+    or any other content, at any window size (5.6.1) - unlike the settings rows this
+    replaces, which used to pack() below the expanding card grid and could be pushed
+    past the bottom of a short window with no way to scroll to them.
+
+    Content widgets stay alive and attribute-referenceable at all times regardless of
+    collapsed state (toggling only pack()/pack_forget()s the content frame, never
+    destroys it) - the tutorial walkthrough resolves settings widgets by reference
+    even while the drawer is visually collapsed."""
+
+    def __init__(self, parent, expanded, on_toggle):
+        super().__init__(parent, bg=PALETTE["bg"])
+        self._on_toggle = on_toggle
+        self.expanded = expanded
+
+        self.header = tk.Button(
+            self, text="", command=self._toggle,
+            bg=PALETTE["bg"], fg=PALETTE["text_mute"],
+            activebackground=PALETTE["bg"], activeforeground=PALETTE["text"],
+            relief="flat", bd=0, cursor="hand2", anchor="w",
+            font=ui_font(9), padx=0, pady=4,
+        )
+        self.header.pack(anchor="w")
+
+        self.content = tk.Frame(self, bg=PALETTE["bg"])
+        if expanded:
+            self.content.pack(anchor="w", pady=(4, 0))
+        self._refresh_header()
+
+        self.place(relx=0.0, rely=1.0, anchor="sw", x=16, y=-16)
+        self.lift()
+
+    def _refresh_header(self):
+        arrow = "▾" if self.expanded else "▸"
+        self.header.configure(text=f"⚙ Settings {arrow}")
+
+    def _toggle(self):
+        self.expand(not self.expanded)
+
+    def expand(self, want=True):
+        if want == self.expanded:
+            return
+        self.expanded = want
+        if want:
+            self.content.pack(anchor="w", pady=(4, 0))
+        else:
+            self.content.pack_forget()
+        self._refresh_header()
+        self._on_toggle(self.expanded)
 
 
 class HomeModule(ttk.Frame):
@@ -288,10 +414,21 @@ class HomeModule(ttk.Frame):
                                   anchor="w", justify="left", wraplength=680)
         self._refresh_gap_warning()
 
-        # ── Settings: the global Eco/Performance mode (2.8.4) ──
-        tk.Label(self, text="SETTINGS", bg=PALETTE["bg"], fg=PALETTE["text_mute"],
-                 font=ui_font(9)).pack(anchor="w", padx=27, pady=(8, 4))
-        srow = tk.Frame(self, bg=PALETTE["bg"])
+        self.note = tk.Label(self, text="", bg=PALETTE["bg"], fg=PALETTE["text_mute"],
+                             font=ui_font(9))
+        self.note.pack(anchor="w", padx=27, pady=(10, 14))
+
+        # ── Settings drawer (5.6.1): place()-pinned bottom-left, collapsible, so the
+        # settings below can never be squeezed off-screen by the card grid regardless
+        # of window size. Expanded by default - the point of this task is
+        # discoverability. All rows below are parented to `content`, not `self`.
+        home_cfg = self.app.config.setdefault("home", {})
+        self._settings_drawer = _SettingsDrawer(
+            self, home_cfg.get("settings_expanded", True), self._on_settings_toggle)
+        content = self._settings_drawer.content
+
+        # The global Eco/Performance mode (2.8.4).
+        srow = tk.Frame(content, bg=PALETTE["bg"])
         srow.pack(fill="x", padx=27)
         self._perf_row = srow
         tk.Label(srow, text="Render & background work", bg=PALETTE["bg"],
@@ -312,7 +449,7 @@ class HomeModule(ttk.Frame):
         self._refresh_mode_btns()
 
         # Hardware encode setting (2.8.5): auto / on / off.
-        self._hw_row = hrow = tk.Frame(self, bg=PALETTE["bg"])
+        self._hw_row = hrow = tk.Frame(content, bg=PALETTE["bg"])
         hrow.pack(fill="x", padx=27, pady=(6, 0))
         tk.Label(hrow, text="Hardware encode", bg=PALETTE["bg"],
                  fg=PALETTE["text_dim"], font=ui_font(10)).pack(side="left")
@@ -327,10 +464,32 @@ class HomeModule(ttk.Frame):
                   pady=3, cursor="hand2", font=ui_font(9)).pack(side="left",
                                                                 padx=(8, 0))
 
+        # ffmpeg / video engine status (5.6.2): download HERMES's own pinned copy or
+        # remove it. Sits next to hardware encode - both are about the video pipeline.
+        self._ffmpeg_row = frow = tk.Frame(content, bg=PALETTE["bg"])
+        frow.pack(fill="x", padx=27, pady=(6, 0))
+        tk.Label(frow, text="ffmpeg (video engine)", bg=PALETTE["bg"],
+                 fg=PALETTE["text_dim"], font=ui_font(10)).pack(side="left")
+        self._ffmpeg_status = tk.Label(frow, text="", bg=PALETTE["bg"],
+                                       fg=PALETTE["text_mute"], font=ui_font(9))
+        self._ffmpeg_status.pack(side="left", padx=(8, 0))
+        self._ffmpeg_btn = tk.Button(frow, relief="flat", bd=0, padx=12, pady=3,
+                                     cursor="hand2", font=ui_font(9),
+                                     bg=PALETTE["card"], fg=PALETTE["text_dim"],
+                                     activebackground=PALETTE["card_hover"],
+                                     activeforeground=PALETTE["text"])
+        self._ffmpeg_btn.pack(side="left", padx=(8, 0))
+        tk.Button(frow, text="?", command=self._ffmpeg_help, bg=PALETTE["panel"],
+                  fg=PALETTE["blue"], activebackground=PALETTE["card_hover"],
+                  activeforeground=PALETTE["blue"], relief="flat", bd=0, padx=8,
+                  pady=3, cursor="hand2", font=ui_font(9)).pack(side="left",
+                                                                padx=(8, 0))
+        self._refresh_ffmpeg_row()
+
         # Launch-on-boot toggle (dist.4): mirrors the installer's checkbox via HKCU Run.
         # Reflects the actual REGISTRY state, not just config - shows On if the installer
         # set it. Source of truth for display is the registry; config records the intent.
-        brow = tk.Frame(self, bg=PALETTE["bg"])
+        brow = tk.Frame(content, bg=PALETTE["bg"])
         brow.pack(fill="x", padx=27, pady=(6, 0))
         tk.Label(brow, text="Launch on startup", bg=PALETTE["bg"],
                  fg=PALETTE["text_dim"], font=ui_font(10)).pack(side="left")
@@ -350,7 +509,7 @@ class HomeModule(ttk.Frame):
         self._refresh_boot_btn()
 
         # Update check (5.3): manual Check now + the quiet on-launch toggle.
-        self._update_row = urow = tk.Frame(self, bg=PALETTE["bg"])
+        self._update_row = urow = tk.Frame(content, bg=PALETTE["bg"])
         urow.pack(fill="x", padx=27, pady=(6, 0))
         tk.Label(urow, text="Updates", bg=PALETTE["bg"],
                  fg=PALETTE["text_dim"], font=ui_font(10)).pack(side="left")
@@ -377,7 +536,7 @@ class HomeModule(ttk.Frame):
         # Keyboard layout (5.5.2b correction): the editor's undo key is Y on QWERTZ
         # and Z on QWERTY (same physical key). Combobox here + a one-shot first-start
         # prompt below.
-        kbrow = tk.Frame(self, bg=PALETTE["bg"])
+        kbrow = tk.Frame(content, bg=PALETTE["bg"])
         kbrow.pack(fill="x", padx=27, pady=(6, 0))
         tk.Label(kbrow, text="Keyboard layout", bg=PALETTE["bg"],
                  fg=PALETTE["text_dim"], font=ui_font(10)).pack(side="left")
@@ -396,7 +555,7 @@ class HomeModule(ttk.Frame):
         # Tutorials (5.5.4a): re-enable toggle. Resets per-module "seen" so every tab's
         # intro replays; the per-tab green "?" (TutorialReplayButton) is separate and
         # always present regardless of this setting.
-        trow = tk.Frame(self, bg=PALETTE["bg"])
+        trow = tk.Frame(content, bg=PALETTE["bg"])
         trow.pack(fill="x", padx=27, pady=(6, 0))
         tk.Label(trow, text="Tutorials", bg=PALETTE["bg"],
                  fg=PALETTE["text_dim"], font=ui_font(10)).pack(side="left")
@@ -409,10 +568,6 @@ class HomeModule(ttk.Frame):
                   pady=3, cursor="hand2", font=ui_font(9)).pack(side="left",
                                                                 padx=(8, 0))
         self._refresh_tutorial_btn()
-
-        self.note = tk.Label(self, text="", bg=PALETTE["bg"], fg=PALETTE["text_mute"],
-                             font=ui_font(9))
-        self.note.pack(anchor="w", padx=27, pady=(6, 14))
 
         # Always-present per-tab tutorial replay button (bottom-right corner).
         TutorialReplayButton(self, self._start_walkthrough,
@@ -428,13 +583,11 @@ class HomeModule(ttk.Frame):
                 and update_check.effective_url(self.app.config)):
             self.after(2500, self._start_update_check, "startup")
 
-        # One-shot first-launch prompts: keyboard layout (5.5.2b correction), then
-        # tutorials (5.5.4a). Chained in one callback (not two separate after() calls at
-        # the same delay) so the two modal dialogs never stack; each askyesno blocks
-        # until answered before the next one can open.
-        if (not self.app.config.get("keyboard_layout_asked")
-                or not self.app.config.get("tutorial", {}).get("asked")):
-            self.after(1200, self._run_first_launch_prompts)
+        # One-shot first-launch prompts (keyboard layout, tutorials) followed by the
+        # ffmpeg startup check (9.3b) - all chained through ONE after() into ONE callback
+        # so their blocking modals never stack; each askyesno blocks until answered
+        # before the next dialog can open.
+        self.after(1200, self._run_startup_prompts_then_ffmpeg_check)
 
     def _reflow(self, event=None):
         width = event.width if event is not None else self.scroll.canvas.winfo_width()
@@ -448,13 +601,192 @@ class HomeModule(ttk.Frame):
 
     def _toggle(self, key):
         """Flip a module's enabled state, persist it, and give feedback. Module load/unload
-        happens on restart (the hub lazy-imports at startup)."""
-        new_state = not registry.is_enabled(key, self.app.config)
+        happens on restart (the hub lazy-imports at startup). Enabling a module that needs
+        ffmpeg when none is found (9.3b) routes through the download flow instead of
+        flipping immediately - the card stays in its current state until that resolves."""
+        turning_on = not registry.is_enabled(key, self.app.config)
+        if turning_on and registry.needs_ffmpeg(key) and video_utils.find_ffmpeg() is None:
+            self._ensure_ffmpeg(lambda: self._enable_after_ffmpeg(key))
+            return
+        self._set_module_enabled(key, turning_on)
+
+    def _enable_after_ffmpeg(self, key):
+        """on_ready callback once an enable-triggered ffmpeg download succeeds: flip the
+        module on, then offer the restart it always needed anyway."""
+        self._set_module_enabled(key, True)
+        self._offer_restart_now(f"{registry.get_label(key)} is ready.")
+
+    def _set_module_enabled(self, key, new_state):
         self.app.config.setdefault("enabled_modules", {})[key] = new_state
         self.app.save_config()
         verb = "enabled" if new_state else "disabled"
         self.note.config(text=f"{registry.get_label(key)} {verb} - Restart to apply.")
         self._refresh_gap_warning()
+        self._redraw_card(key)
+
+    def _redraw_card(self, key):
+        for card in self.cards:
+            if card.key == key:
+                card.draw()
+                return
+
+    def _offer_restart_now(self, message):
+        restart = getattr(self.app, "restart", None)
+        if not callable(restart):
+            self.note.config(text=f"{message} Restart to apply (run via main.py).")
+            return
+        if messagebox.askyesno(f"Restart {version.APP_NAME}",
+                               f"{message} Restart now?", parent=self):
+            restart()
+
+    # ── On-demand ffmpeg download (9.3b) ────────────────────────────────────────────
+    def _ensure_ffmpeg(self, on_ready):
+        """If ffmpeg is already available, run on_ready() immediately. Else prompt with
+        the download size; on accept, run a blocking modal download; on success call
+        on_ready(). Declining, cancelling, or a failed download never calls on_ready -
+        the caller's pending action (enable a module, offer a restart) simply doesn't
+        happen and can be retried later."""
+        if video_utils.find_ffmpeg() is not None:
+            on_ready()
+            return
+        mb = video_utils.FFMPEG_DL_BYTES / 1_000_000
+        if not messagebox.askyesno(
+                "Download ffmpeg",
+                "This module needs ffmpeg to process video. Download it now? "
+                f"(about {mb:.0f} MB)", parent=self):
+            self.note.config(text="ffmpeg download declined - module not enabled.")
+            return
+        self._start_ffmpeg_download(on_ready)
+
+    def _start_ffmpeg_download(self, on_ready):
+        """Spawn the download worker plus a blocking progress modal. The worker touches
+        no tkinter; progress and the final result are marshalled through a queue and
+        drained by a UI-thread after() poll (house pattern, mirrors _poll_update)."""
+        modal = _DownloadProgressModal(self, "Downloading ffmpeg", "Downloading ffmpeg...")
+        cancel_event = threading.Event()
+        modal.cancel_btn.configure(command=cancel_event.set)
+        q = queue.Queue()
+
+        def on_progress(done, total):
+            q.put(("progress", (done / total * 100) if total else None))
+
+        def worker():
+            result = video_utils.download_ffmpeg(on_progress=on_progress,
+                                                 cancel_event=cancel_event)
+            q.put(("done", result))
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.after(100, self._poll_ffmpeg_download, q, modal, on_ready)
+
+    def _poll_ffmpeg_download(self, q, modal, on_ready):
+        try:
+            if not self.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        try:
+            while True:
+                kind, payload = q.get_nowait()
+                if kind == "progress":
+                    modal.set_progress(payload)
+                else:
+                    modal.close()
+                    self._ffmpeg_download_done(payload, on_ready)
+                    return
+        except queue.Empty:
+            pass
+        self.after(100, self._poll_ffmpeg_download, q, modal, on_ready)
+
+    def _ffmpeg_download_done(self, result, on_ready):
+        if result.ok:
+            self.note.config(text="ffmpeg downloaded.")
+            on_ready()
+        elif result.canceled:
+            self.note.config(text="ffmpeg download cancelled - module not enabled.")
+        else:
+            self.note.config(
+                text=f"ffmpeg download failed ({result.error}) - try again from Home later.")
+
+    def _refresh_ffmpeg_row(self):
+        """Recompute and redraw the ffmpeg status text + action button (5.6.2). Called
+        after _build, after any ffmpeg download completes, and after a removal."""
+        assets_dir = self.app.paths.get_path("assets", create=False)
+        if video_utils.has_downloaded_ffmpeg():
+            status, btn_text = "Downloaded (~110 MB)", "Remove"
+            command = self._remove_ffmpeg
+        elif shutil.which("ffmpeg"):
+            status, btn_text = "Found on your system", "Download"
+            command = lambda: self._ensure_ffmpeg(self._refresh_ffmpeg_row)  # noqa: E731
+        elif os.path.exists(os.path.join(assets_dir, "ffmpeg.exe")):
+            status, btn_text = "Using dev fallback", "Download"
+            command = lambda: self._ensure_ffmpeg(self._refresh_ffmpeg_row)  # noqa: E731
+        else:
+            status, btn_text = "Not installed", "Download"
+            command = lambda: self._ensure_ffmpeg(self._refresh_ffmpeg_row)  # noqa: E731
+        self._ffmpeg_status.configure(text=status)
+        self._ffmpeg_btn.configure(text=btn_text, command=command)
+
+    def _remove_ffmpeg(self):
+        """Delete HERMES's own downloaded ffmpeg copy. If nothing else on this system
+        would still resolve (PATH, dev fallback), warn and auto-disable whichever
+        enabled modules need it rather than blocking the removal outright."""
+        if not video_utils.has_downloaded_ffmpeg():
+            return
+        fallback = video_utils.find_ffmpeg_excluding_downloaded()
+        affected = []
+        if fallback is None:
+            affected = [k for k in registry.enabled_modules(self.app.config)
+                       if registry.needs_ffmpeg(k)]
+        if affected:
+            labels = ", ".join(registry.get_label(k) for k in affected)
+            if not messagebox.askyesno(
+                    "Remove ffmpeg",
+                    f"Removing ffmpeg will disable: {labels} - they need it to "
+                    "process video and nothing else on this system provides it.\n\n"
+                    "Remove it and disable these modules?", parent=self):
+                return
+        else:
+            if not messagebox.askyesno(
+                    "Remove ffmpeg",
+                    "Remove the downloaded ffmpeg (about 110 MB)?", parent=self):
+                return
+        try:
+            os.remove(video_utils.ffmpeg_download_target())
+        except OSError as ex:
+            self.note.config(text=f"Could not remove ffmpeg: {ex}")
+            return
+        for key in affected:
+            self._set_module_enabled(key, False)
+        self._refresh_ffmpeg_row()
+        if affected:
+            self._offer_restart_now("ffmpeg removed; affected modules disabled.")
+        else:
+            self.note.config(text="ffmpeg removed.")
+
+    def _ffmpeg_help(self):
+        HelpDialog(self, title="ffmpeg", body=(
+            "ffmpeg is the video engine every video-handling module needs (Import, "
+            "Editor, Export).\n\n"
+            "Download fetches HERMES's own pinned copy (about 110 MB), independent "
+            "of whatever else is on your system.\n\n"
+            "Remove deletes that copy. If ffmpeg is still found on your system's "
+            "PATH afterward, removing is harmless; otherwise the modules that need "
+            "it get disabled and you're asked first."))
+
+    def _check_ffmpeg_startup(self):
+        """Startup-only ffmpeg presence check: catches an update from an older build
+        that bundled ffmpeg, where an already-enabled module now has none. Chained
+        after the first-launch prompts (not its own after() delay) so blocking modals
+        never stack."""
+        if not self.winfo_exists():
+            return
+        if video_utils.find_ffmpeg() is not None:
+            return
+        needing = [k for k in registry.enabled_modules(self.app.config)
+                  if registry.needs_ffmpeg(k)]
+        if not needing:
+            return
+        self._ensure_ffmpeg(lambda: self._offer_restart_now("ffmpeg is ready."))
 
     def _on_kb_change(self, _e=None):
         """Persist the keyboard layout; the editor reads it fresh per keypress, so
@@ -488,6 +820,15 @@ class HomeModule(ttk.Frame):
         self.app.config["keyboard_layout_asked"] = True
         self.app.save_config()
         self._kb_var.set(self.app.config["keyboard_layout"])
+
+    def _run_startup_prompts_then_ffmpeg_check(self):
+        """The single scheduled entry point for every one-shot/startup dialog: the
+        first-launch prompts (each askyesno blocks until answered), then the ffmpeg
+        startup check (9.3b) - which only itself prompts if ffmpeg actually turns out
+        to be missing. Keeping this as one callback is what stops any of them from
+        showing as stacked dialogs."""
+        self._run_first_launch_prompts()
+        self._check_ffmpeg_startup()
 
     def _run_first_launch_prompts(self):
         """Fires both one-shot first-launch prompts in sequence (see the scheduling
@@ -544,10 +885,12 @@ class HomeModule(ttk.Frame):
             on_show_me=self._start_walkthrough)
 
     def _start_walkthrough(self):
-        """Home's 7-step tour: module cards, keyboard layout, performance mode,
-        launch on startup, then a closing stretch on the three settings the earlier
-        steps skip over - links, hardware encode, updates (5.5.4b beta addition).
-        Also the entry point for the replay button."""
+        """Home's 8-step tour: module cards, keyboard layout, performance mode,
+        launch on startup, then a closing stretch on the settings the earlier steps
+        skip over - links, hardware encode, ffmpeg (5.6.2), updates (5.5.4b beta
+        addition). Steps targeting a widget inside the settings drawer expand it
+        first via on_show, even starting from a collapsed state. Also the entry
+        point for the replay button."""
         steps = [
             {"target": lambda: self.scroll, "title": "Module cards",
              "body": "Click a card to enable or disable that module. Enabled "
@@ -555,16 +898,19 @@ class HomeModule(ttk.Frame):
             {"target": lambda: getattr(self, "_kb_box", None),
              "title": "Keyboard layout",
              "body": "Match this to your physical keyboard so the editor's "
-                     "undo/redo keys land in the right place."},
+                     "undo/redo keys land in the right place.",
+             "on_show": self._expand_settings_drawer},
             {"target": lambda: getattr(self, "_perf_row", None),
              "title": "Performance mode",
              "body": "Eco keeps rendering light so gaming or streaming alongside "
                      "stays smooth. Performance renders faster when the PC is "
-                     "all yours."},
+                     "all yours.",
+             "on_show": self._expand_settings_drawer},
             {"target": lambda: getattr(self, "_boot_btn", None),
              "title": "Launch on startup",
              "body": "Turn this on to have HERMES open automatically when you "
-                     "log in."},
+                     "log in.",
+             "on_show": self._expand_settings_drawer},
             {"target": lambda: getattr(self, "_link_bar", None),
              "title": "Saltydayn's socials",
              "body": "YouTube, Twitch, Discord, and X - come hang out, get in "
@@ -573,12 +919,20 @@ class HomeModule(ttk.Frame):
              "title": "Hardware encode",
              "body": "Auto uses your GPU's hardware encoder in Performance mode "
                      "for faster renders, falling back to software if none is "
-                     "found. Force it On or Off if you'd rather choose yourself."},
+                     "found. Force it On or Off if you'd rather choose yourself.",
+             "on_show": self._expand_settings_drawer},
+            {"target": lambda: getattr(self, "_ffmpeg_row", None),
+             "title": "ffmpeg",
+             "body": "The video engine every module needs. Download or remove "
+                     "it here, and see whether HERMES downloaded its own copy or "
+                     "found one already on your system.",
+             "on_show": self._expand_settings_drawer},
             {"target": lambda: getattr(self, "_update_row", None),
              "title": "Updates",
              "body": "Check now looks for a newer version right away. The other "
                      "button controls whether HERMES quietly checks on every "
-                     "launch."},
+                     "launch.",
+             "on_show": self._expand_settings_drawer},
         ]
         TutorialWalkthrough(self.app.root, steps).start()
 
@@ -618,6 +972,18 @@ class HomeModule(ttk.Frame):
         if self._hint is not None:
             self._hint.destroy()
             self._hint = None
+
+    def _on_settings_toggle(self, expanded):
+        """The settings drawer's header click callback: persist collapsed/expanded
+        state (5.6.1)."""
+        self.app.config.setdefault("home", {})["settings_expanded"] = expanded
+        self.app.save_config()
+
+    def _expand_settings_drawer(self):
+        """Tutorial on_show hook: expand the settings drawer before a step targeting
+        a setting positions its ring, mirroring ScrollableFrame.scroll_to's role for
+        the card grid."""
+        self._settings_drawer.expand(True)
 
     def _refresh_gap_warning(self):
         """Show/hide the red workflow warning from workflow_gaps(). Advisory only,
@@ -754,21 +1120,22 @@ class HomeModule(ttk.Frame):
             }.get(result["status"], "Couldn't check for updates."))
 
     def _show_update_notice(self, result):
-        """One dismissable banner under the header: new version + notes + a download
-        button. A fresh "newer" result replaces any notice already showing. Dismissal
-        is session-only; the banner returns next launch if still newer."""
+        """One dismissable banner under the header: the headline + notes, plus
+        whichever action fits (9.3c): "Update now" when can_self_update(result) says
+        this build can download and apply the update itself, else the plain "Open
+        download" browser link (also always offered as a fallback). A fresh "newer"
+        result replaces any notice already showing. Dismissal is session-only; the
+        banner returns next launch if still newer."""
         self._dismiss_update_notice()
         outer = tk.Frame(self._notice_slot, bg=PALETTE["border"])
         outer.pack(fill="x", pady=(12, 0))
         row = tk.Frame(outer, bg=PALETTE["panel"])
         row.pack(fill="x", padx=1, pady=1)
         self._update_notice = outer
-        tk.Label(row, text="Update available:", bg=PALETTE["panel"],
-                 fg=PALETTE["text"], font=ui_font(10)).pack(side="left",
-                                                            padx=(12, 0), pady=6)
-        tk.Label(row, text=f"v{result['latest']}", bg=PALETTE["panel"],
-                 fg=PALETTE["yellow"], font=ui_font(10, "bold")).pack(side="left",
-                                                                      padx=(6, 0))
+        headline = result.get("title") or f"Update available (v{result['latest']})"
+        tk.Label(row, text=headline, bg=PALETTE["panel"],
+                 fg=PALETTE["yellow"], font=ui_font(10, "bold")).pack(
+                     side="left", padx=(12, 0), pady=6)
         notes = result["notes"].strip()
         if notes:
             if len(notes) > 90:   # keep the banner one line
@@ -785,6 +1152,14 @@ class HomeModule(ttk.Frame):
         if result["download_url"]:
             url = result["download_url"]
             tk.Button(row, text="Open download", command=lambda: open_url(url),
+                      bg=PALETTE["card"], fg=PALETTE["text_dim"],
+                      activebackground=PALETTE["card_hover"],
+                      activeforeground=PALETTE["text"], relief="flat", bd=0,
+                      padx=12, pady=3, cursor="hand2",
+                      font=ui_font(9)).pack(side="right", padx=(8, 0))
+        if update_check.can_self_update(result):
+            tk.Button(row, text="Update now",
+                      command=lambda: self._start_self_update(result),
                       bg=PALETTE["green"], fg=PALETTE["deep"],
                       activebackground=PALETTE["green"],
                       activeforeground=PALETTE["deep"], relief="flat", bd=0,
@@ -795,6 +1170,129 @@ class HomeModule(ttk.Frame):
         if self._update_notice is not None:
             self._update_notice.destroy()
             self._update_notice = None
+
+    # ── Self-update download + apply (9.3c) ─────────────────────────────────────
+    def _start_self_update(self, result):
+        """Kick off the manifest-diff download for a self-applicable update. The
+        worker thread touches no tkinter; progress and the final outcome marshal
+        through a queue drained by a UI-thread after() poll (house pattern)."""
+        self._dismiss_update_notice()
+        modal = _DownloadProgressModal(self, "Downloading update", "Downloading update...")
+        cancel_event = threading.Event()
+        modal.cancel_btn.configure(command=cancel_event.set)
+        q = queue.Queue()
+        threading.Thread(target=self._self_update_worker,
+                         args=(result["manifest_url"], cancel_event, q),
+                         daemon=True).start()
+        self.after(100, self._poll_self_update, q, modal, result)
+
+    def _self_update_worker(self, manifest_url, cancel_event, q):
+        """Off the UI thread: fetch the remote manifest, diff it against the locally
+        installed one, download each unique changed blob into a staging tree, then
+        write the staged manifest.json + a remove.txt of dropped files. Never
+        touches tkinter; every outcome goes through q."""
+        staging_root = self.app.paths.update_staging_dir()
+        staged_dir = os.path.join(staging_root, "staged")
+        try:
+            remote = update_check.fetch_manifest(manifest_url)
+        except Exception as exc:  # noqa: BLE001 - network/JSON errors, report don't crash
+            q.put(("error", f"could not fetch the update manifest: {exc}"))
+            return
+        local = update_check.load_local_manifest()
+        plan = update_check.diff_manifests(local, remote)
+        total_bytes = sum(size for _, size, _ in plan["download"])
+        done_bytes = 0
+        try:
+            os.makedirs(staged_dir, exist_ok=True)
+            for sha, size, relpaths in plan["download"]:
+                if cancel_event.is_set():
+                    q.put(("canceled", None))
+                    return
+                base_done = done_bytes
+
+                def on_progress(chunk_done, _chunk_total, _base=base_done):
+                    q.put(("progress", (_base + chunk_done, total_bytes)))
+
+                blob_tmp = os.path.join(staging_root, f"_blob_{sha}")
+                dl_result = downloader.download_file(
+                    update_check.blob_url(manifest_url, sha), blob_tmp,
+                    expected_sha256=sha, expected_size=size or None,
+                    on_progress=on_progress, cancel_event=cancel_event)
+                if dl_result.canceled:
+                    q.put(("canceled", None))
+                    return
+                if not dl_result.ok:
+                    q.put(("error", f"download failed: {dl_result.error}"))
+                    return
+                first_target = os.path.join(staged_dir, relpaths[0])
+                os.makedirs(os.path.dirname(first_target), exist_ok=True)
+                os.replace(blob_tmp, first_target)
+                for relpath in relpaths[1:]:
+                    target = os.path.join(staged_dir, relpath)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
+                    shutil.copy2(first_target, target)
+                done_bytes += size
+            with open(os.path.join(staged_dir, "manifest.json"), "w",
+                     encoding="utf-8") as f:
+                json.dump(remote, f)
+            remove_file = os.path.join(staging_root, "remove.txt")
+            with open(remove_file, "w", encoding="utf-8") as f:
+                f.write("\n".join(plan["remove"]))
+        except OSError as exc:
+            q.put(("error", f"could not stage the update: {exc}"))
+            return
+        q.put(("ready", (staged_dir, remove_file)))
+
+    def _poll_self_update(self, q, modal, result):
+        try:
+            if not self.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        try:
+            while True:
+                kind, payload = q.get_nowait()
+                if kind == "progress":
+                    done, total = payload
+                    pct = (done / total * 100) if total else None
+                    detail = (f"{done / 1_000_000:.1f} / {total / 1_000_000:.1f} MB"
+                             if total else "")
+                    modal.set_progress(pct, detail=detail)
+                elif kind == "ready":
+                    modal.close()
+                    self._self_update_ready(payload)
+                    return
+                elif kind == "canceled":
+                    modal.close()
+                    self._self_update_cleanup()
+                    self.note.config(text="Update canceled.")
+                    self._show_update_notice(result)
+                    return
+                else:  # error
+                    modal.close()
+                    self._self_update_cleanup()
+                    self.note.config(text=f"Update failed: {payload}")
+                    self._show_update_notice(result)
+                    return
+        except queue.Empty:
+            pass
+        self.after(100, self._poll_self_update, q, modal, result)
+
+    def _self_update_cleanup(self):
+        shutil.rmtree(self.app.paths.update_staging_dir(create=False),
+                      ignore_errors=True)
+
+    def _self_update_ready(self, payload):
+        staged_dir, remove_file = payload
+        if messagebox.askyesno(
+                "Update ready",
+                "The update downloaded and verified. HERMES will close and reopen "
+                "to finish - continue?", parent=self):
+            self.app.apply_update(staged_dir, remove_file)
+        else:
+            self._self_update_cleanup()
+            self.note.config(
+                text="Update ready - click Update now again when you're ready.")
 
     def _toggle_update_launch(self):
         want = not self.app.config.get("update_check_on_launch", True)

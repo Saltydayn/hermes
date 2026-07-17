@@ -12,6 +12,9 @@ __pycache__/
 # Downloaded ML models (large, fetched on demand)
 models/
 
+# Downloaded ffmpeg.exe (on-demand fetch, 9.3b)
+bin/
+
 # Bundled ffmpeg fallback + any other stray executables/installers in assets
 assets/*.exe
 
@@ -34,6 +37,10 @@ build/version_info.txt
 build/Output/
 *.zip
 HERMES-*-setup.exe
+
+# Release manifest + content-addressed blobs (9.3c --release), uploaded to
+# GitHub Releases by hand, never committed
+build/release/
 
 # Local screenshot captures (dev/screenshots/, never shipped, never public)
 dev/screenshots/output/

@@ -9,23 +9,115 @@ import os
 import shutil
 import subprocess
 import time
+import zipfile
 
 import cv2
 import numpy as np
 
-from shared import paths
+from shared import downloader, paths
 
 # Hide the console window ffmpeg would otherwise flash on Windows.
 _NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
+# Pinned ffmpeg source for on-demand download (9.3b). A SPECIFIC versioned gyan.dev
+# essentials build (a .zip, so stdlib zipfile extracts it - the full build is .7z and
+# would need a non-stdlib extractor). Pinned by URL AND sha256 so the download is
+# integrity-verified; the moving "latest" URL can't be pinned since its checksum changes
+# on every ffmpeg release. If gyan ever rotates this exact package out, the fetch fails
+# gracefully (checksum/404) and a future release updates these three constants.
+FFMPEG_URL = "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-essentials_build.zip"
+FFMPEG_SHA256 = "db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec"
+FFMPEG_DL_BYTES = 109728040
+
+
+def ffmpeg_download_target():
+    """Absolute path where a downloaded ffmpeg.exe lives."""
+    return os.path.join(paths.get_path("bin"), "ffmpeg.exe")
+
 
 def find_ffmpeg():
-    """Locate the ffmpeg binary: system PATH first, then assets/ffmpeg.exe. None if absent."""
+    """Locate the ffmpeg binary: system PATH first, then a previously downloaded copy,
+    then assets/ffmpeg.exe (legacy/dev fallback - the build no longer bundles it as of
+    9.3b). None if absent."""
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    downloaded = ffmpeg_download_target()
+    if os.path.exists(downloaded):
+        return downloaded
+    local = os.path.join(paths.get_path("assets", create=False), "ffmpeg.exe")
+    return local if os.path.exists(local) else None
+
+
+def has_downloaded_ffmpeg():
+    """True if HERMES's own downloaded copy exists at ffmpeg_download_target()."""
+    return os.path.exists(ffmpeg_download_target())
+
+
+def find_ffmpeg_excluding_downloaded():
+    """Same discovery order as find_ffmpeg() but skips the downloaded bin/ffmpeg.exe
+    copy. Used to check whether removing the downloaded copy would leave any
+    ffmpeg-needing module without a working ffmpeg (PATH or the assets/ dev fallback)."""
     found = shutil.which("ffmpeg")
     if found:
         return found
     local = os.path.join(paths.get_path("assets", create=False), "ffmpeg.exe")
     return local if os.path.exists(local) else None
+
+
+def _extract_ffmpeg_exe(zip_path, target):
+    """Pull the ffmpeg.exe member out of `zip_path` to `target` via a temp .part +
+    atomic os.replace (never leaves a half-written exe find_ffmpeg() could pick up).
+    Returns (ok, error). Cleans up its own .part on any failure."""
+    part = target + ".part"
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            member = next(
+                (n for n in zf.namelist() if n.replace("\\", "/").endswith("bin/ffmpeg.exe")),
+                None)
+            if member is None:
+                return False, "ffmpeg.exe not found inside the downloaded archive"
+            with zf.open(member) as src, open(part, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+        os.replace(part, target)
+        return True, ""
+    except (zipfile.BadZipFile, OSError) as exc:
+        return False, f"extraction failed: {exc}"
+    finally:
+        if os.path.exists(part):
+            try:
+                os.remove(part)
+            except OSError:
+                pass
+
+
+def download_ffmpeg(on_progress=None, cancel_event=None):
+    """Fetch the pinned ffmpeg zip, verify it, and extract just ffmpeg.exe to
+    ffmpeg_download_target(). Headless - never touches tkinter, never raises. Returns a
+    downloader.DownloadResult-shaped object (ok / canceled / error); on success `.path`
+    is the extracted exe. on_progress/cancel_event pass straight through to the fetch
+    phase (downloader.download_file); extraction itself is fast enough not to need
+    progress or cancellation of its own."""
+    zip_path = os.path.join(paths.get_path("bin"), "_ffmpeg_dl.zip")
+    try:
+        result = downloader.download_file(
+            FFMPEG_URL, zip_path,
+            expected_sha256=FFMPEG_SHA256, expected_size=FFMPEG_DL_BYTES,
+            on_progress=on_progress, cancel_event=cancel_event)
+        if not result.ok:
+            return result
+
+        target = ffmpeg_download_target()
+        ok, err = _extract_ffmpeg_exe(zip_path, target)
+        if not ok:
+            return downloader.DownloadResult(ok=False, error=err)
+        return downloader.DownloadResult(ok=True, path=target)
+    finally:
+        if os.path.exists(zip_path):
+            try:
+                os.remove(zip_path)
+            except OSError:
+                pass
 
 
 def _run(cmd):

@@ -1,9 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec, HERMES onedir bundle (roadmap 7.2 / SPEC_dist.2).
 
-Produces dist/HERMES/HERMES.exe + _internal/. assets/ (icons + bundled ffmpeg.exe) land
-INSIDE _internal/, that is dist.1's _MEIPASS anchor, so find_ffmpeg() and the icon loader
-resolve them in the frozen app.
+Produces dist/HERMES/HERMES.exe + _internal/. assets/ (icons) land INSIDE _internal/, that
+is dist.1's _MEIPASS anchor, so the icon loader resolves them in the frozen app. ffmpeg.exe
+is NOT bundled as of 9.3b - it downloads on demand into the writable bin/ dir the first
+time a module that needs it is enabled; find_ffmpeg() checks PATH, then that download
+target, then assets/ffmpeg.exe (a dev/run-from-source fallback only).
 
 Paths are anchored to SPECPATH (this file's dir = build/), so the build is independent of
 the cwd PyInstaller was launched from. Driven by build/build.py (it generates
@@ -15,12 +17,11 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 REPO = os.path.dirname(SPECPATH)          # build/ -> repo root
 ASSETS = os.path.join(REPO, "assets")
 
-# Bundled data -> _internal/assets/. ffmpeg.exe is asserted present by build.py before this
-# spec runs; the icons ship beside it.
+# Bundled data -> _internal/assets/. Icons only - ffmpeg.exe is on-demand (9.3b), never
+# shipped in the build.
 datas = [
     (os.path.join(ASSETS, "twitch.png"), "assets"),
     (os.path.join(ASSETS, "youtube.png"), "assets"),
-    (os.path.join(ASSETS, "ffmpeg.exe"), "assets"),
 ]
 # tkinterdnd2 ships the tkdnd Tcl library as data files; without them drag-and-drop import
 # silently dies in the frozen app (it degrades gracefully, but we want it working).
