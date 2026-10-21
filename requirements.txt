@@ -1,0 +1,14 @@
+# HERMES runtime dependencies (all bundled into the installer build).
+#
+# Not a pip package: ffmpeg (binary). The app downloads it on demand from Home; PATH or
+# assets/ffmpeg.exe also work when running from source.
+
+opencv-python>=4.8,<5  # core video/image (cv2). 5.x changes text rendering and is untested here
+numpy>=1.24,<3         # array math for frames
+Pillow>=10.1           # image loading / Tk image bridge
+yt-dlp                 # URL import (importer); ~3MB pure-python. Needs ffmpeg for muxing (already required).
+tkinterdnd2            # drag-and-drop file import (importer); ~0.5MB, bundles the tkdnd Tcl lib. Optional, file import degrades gracefully if absent.
+sounddevice            # audible playback (editor); PortAudio bundled, ~2MB (+cffi), numpy-native callback streaming. Optional, playback degrades to silent if absent.
+faster-whisper>=1.1,<2  # speech-to-text engine (downloads.py load test, subtitle studio); pulls in ctranslate2 (~60MB, CPU inference), av, tokenizers. av (PyAV) is left out of the build: HERMES hands faster-whisper decoded audio (shared/whisper_engine.py). ~74MB installed. Bundled, not downloaded - reliability over the ~74MB saving (Phase 6.1). Models (~0.5-3GB each) download on demand via the Downloads tab, never bundled.
+ctranslate2>=4.5,<5     # faster-whisper's inference engine, imported directly for GPU detection. 4.5+ is the CUDA 12 / cuDNN 9 line the GPU add-on (shared/assets.py) is pinned to; 5.x may move CUDA and break the add-on. build/build.py refuses other majors.
+onnxruntime>=1.14,<2    # faster-whisper's voice filter (CPU provider only). NEVER onnxruntime-gpu: it adds ~340 MB of unused CUDA providers and a file over GitHub's 100 MB limit; build/build.py refuses to build with it.

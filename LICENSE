@@ -1,0 +1,134 @@
+HERMES SOURCE-AVAILABLE LICENSE AGREEMENT
+Copyright (c) 2026 Joshua, doing business as "Saltydayn" ("Licensor"). All Rights Reserved.
+
+HERMES (H.E.R.M.E.S. - Highlight Editor & Rapid Media Export Suite), including its source code,
+object code, documentation, artwork, branding, and all associated files in this repository
+(collectively, the "Software"), is the exclusive intellectual property of the Licensor and is
+protected under applicable copyright, trademark, and other intellectual property laws and
+international treaties. UNAUTHORIZED USE, REPRODUCTION, OR DISTRIBUTION OF THIS SOFTWARE, OR ANY
+PORTION OF IT, IS STRICTLY PROHIBITED AND MAY RESULT IN SEVERE CIVIL AND CRIMINAL PENALTIES, AND
+WILL BE PROSECUTED TO THE MAXIMUM EXTENT POSSIBLE UNDER LAW.
+
+------------------------------------------------------------
+SUMMARY (informal - the clauses below are what actually governs)
+------------------------------------------------------------
+
+You're welcome to read the code, run the official builds for yourself, and reach out. You are NOT
+permitted to copy, resell, rebrand, or build a competing product from this work without asking
+first. Most reasonable requests - a fork to propose a fix, using a snippet with credit, a
+collaboration - get a yes. Ask before you assume: saltydaynofficial@gmail.com or the Discord.
+
+------------------------------------------------------------
+1. DEFINITIONS
+------------------------------------------------------------
+
+1.1 "Licensor" means Joshua, operating as "Saltydayn," the sole author and copyright holder of the
+    Software.
+1.2 "Licensee" or "You" means any individual or entity that accesses, downloads, views, compiles,
+    or otherwise makes use of the Software.
+1.3 "Authorized Build" means a compiled release of the Software obtained directly from the
+    Licensor's official repository, official Releases page, or a distribution channel expressly
+    designated by the Licensor (including but not limited to itch.io).
+
+------------------------------------------------------------
+2. GRANT OF LIMITED LICENSE
+------------------------------------------------------------
+
+Subject to strict compliance with the terms of this Agreement, the Licensor grants You a limited,
+personal, non-exclusive, non-transferable, non-sublicensable, and revocable license to:
+
+  (a) view and study the source code for informational and educational purposes;
+  (b) download, install, and run Authorized Builds for Your own personal, non-commercial use; and
+  (c) compile the Software from this source for Your own personal, non-commercial use.
+
+No other rights are granted, express or implied. All rights not expressly granted herein are
+reserved by the Licensor.
+
+------------------------------------------------------------
+3. PROHIBITED CONDUCT
+------------------------------------------------------------
+
+Except with the Licensor's prior express written consent, You SHALL NOT, under any circumstances:
+
+  (a) copy, reproduce, modify, adapt, translate, merge, or create derivative works based on the
+      Software, in whole or in part;
+  (b) distribute, publish, sublicense, rent, lease, lend, host, mirror, or otherwise make the
+      Software (or any derivative of it) available to any third party, by any means;
+  (c) sell, resell, or otherwise monetize the Software or any derivative, adaptation, clone, or
+      substantial reproduction of its distinctive features, workflow, or design, whether or not any
+      original code is reused;
+  (d) reverse engineer, decompile, or disassemble any compiled Authorized Build, except to the
+      limited extent such restriction is expressly prohibited by applicable law notwithstanding
+      this limitation;
+  (e) remove, obscure, or alter any copyright, trademark, or attribution notice contained in the
+      Software; or
+  (f) use the name "HERMES," "H.E.R.M.E.S.," the Licensor's branding, logos, or any mark
+      confusingly similar thereto, in connection with any product, service, or publication not
+      expressly authorized by the Licensor in writing.
+
+VIOLATION OF THIS SECTION CONSTITUTES INFRINGEMENT OF THE LICENSOR'S INTELLECTUAL PROPERTY RIGHTS
+AND WILL BE PURSUED THROUGH ALL AVAILABLE LEGAL REMEDIES.
+
+------------------------------------------------------------
+4. INTELLECTUAL PROPERTY
+------------------------------------------------------------
+
+The Software, and all copyright, trademark, trade dress, and other intellectual property rights
+therein, are and shall remain the exclusive property of the Licensor. "HERMES" and the HERMES logo
+are claimed trademarks of the Licensor. No formal registration is represented by this notice unless
+separately and explicitly stated; the Licensor reserves the right to pursue formal registration of
+its marks, and use of the Software does not grant You any right, title, or interest in the
+Licensor's trademarks, trade names, or brand identity.
+
+------------------------------------------------------------
+5. THIRD-PARTY COMPONENTS
+------------------------------------------------------------
+
+The Software incorporates or depends upon certain third-party open-source components, listed in
+`requirements.txt` and `THIRD_PARTY_LICENSES.md`. Each such component remains governed exclusively
+by its own license, which is unaffected by, and takes precedence over, this Agreement with respect
+to that component.
+
+------------------------------------------------------------
+6. DISCLAIMER OF WARRANTY
+------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+------------------------------------------------------------
+7. TERMINATION
+------------------------------------------------------------
+
+This license is effective until terminated. It will terminate automatically and without notice if
+You fail to comply with any term herein. Upon termination, You must immediately cease all use of
+the Software and destroy all copies in Your possession. Sections 4, 5, 6, and this Section 7 survive
+any termination.
+
+------------------------------------------------------------
+8. RESERVATION OF RIGHTS
+------------------------------------------------------------
+
+Nothing in this Agreement shall be construed as a waiver of any right or remedy available to the
+Licensor under copyright law, trademark law, unfair competition law, trade secret law, contract
+law, or any other applicable law, in any jurisdiction.
+
+------------------------------------------------------------
+CONTACT
+------------------------------------------------------------
+
+Permission requests, licensing questions, and collaboration proposals are welcome and are typically
+handled favorably. Contact: saltydaynofficial@gmail.com, or the HERMES Discord.
+
+------------------------------------------------------------
+A NOTE OF ACTUAL HONESTY
+------------------------------------------------------------
+
+This document is deliberately written in formal legal language to make the terms unambiguous, but
+it was written by the developer, not a lawyer, and has not been reviewed by one. It does not, and
+cannot, claim a patent - patents require an actual filed and granted application, and this Software
+has none. If you are relying on this document for something high-stakes (enforcement against a
+large infringer, a registered trademark, a real dispute), consult a qualified intellectual property
+attorney; this file is a strong deterrent and a clear statement of terms, not a substitute for one.

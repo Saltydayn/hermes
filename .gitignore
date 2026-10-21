@@ -1,0 +1,44 @@
+# HERMES public repo: app source only.
+
+# Local tooling and notes
+tests/
+dev/
+*.log
+
+# Runtime user data
+config.json
+config.json.bak
+config.json.tmp
+config.corrupt-*.json
+hermes.log*
+token.json
+client_secrets.json
+supporters_cache.json
+transcripts/
+models/
+bin/
+cuda/
+/fonts/
+shorts_export/
+shorts_import/
+data/Downloads/*
+data/Shorts/*
+data/Thumbnails/*
+data/Subtitles/*
+data/Emotes/*
+!data/**/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Binaries and build output
+assets/*.exe
+build/dist/
+build/work/
+build/release/
+build/Output/
+build/version_info.txt
+*.zip
+HERMES-*-setup.exe
